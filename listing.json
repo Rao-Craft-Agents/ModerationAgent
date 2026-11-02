@@ -1,9 +1,0 @@
-{
-  "name": "Moderation",
-  "tagline": "On-device content safety for an app: a keyword filter, an image-safety gate on your Core ML model, a moderator, and its SwiftUI.",
-  "category": "developer",
-  "keywords": ["swift", "moderation", "content safety", "core ml", "swiftui", "keywords", "granite", "loom"],
-  "platforms": ["macOS 14"],
-  "license": "MIT",
-  "description": "On-device content safety for an app that shows what people post, written as a local Swift package and linked into every app target. One call writes a keyword filter that matches thousands of words and phrases in one pass (whole words, any case or accents, `*` wildcards), an image-safety gate that runs a Core ML classifier the app provides through Vision (bundled, or downloaded once and compiled on the device), a policy the app persists, and a `Moderator` actor that judges each post into allow, blur or hide with the reason.\n\nIt also writes a SwiftUI `censorOverlay(_:)` that blurs content under its reason until a tap, and a `KeywordListEditor` for the person's own list, with tests for all of it. No model ships in the package, and nothing leaves the device.\n\nSay `{\"keywords\": [\"spoiler\", \"crypto*\"], \"modelURL\": \"https://…/safety.mlmodel\"}`; every problem with a call is said at once and nothing is written until every file parses. Projects are edited as Xcode writes them, and a second call adds nothing twice.\n\nOne of the Rao Craft Agents: independent packages that, tagged in prompts along the life of a project, build an app of Loom's quality."
-}

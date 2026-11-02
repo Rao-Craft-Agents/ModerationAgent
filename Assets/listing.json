@@ -1,0 +1,19 @@
+{
+  "name": "Moderation",
+  "tagline": "On-device content safety for an app: a keyword filter, an image-safety gate on your Core ML model, a moderator, and its SwiftUI.",
+  "category": "developer",
+  "keywords": [
+    "swift",
+    "moderation",
+    "content safety",
+    "core ml",
+    "swiftui",
+    "keywords",
+    "granite",
+    "loom"
+  ],
+  "platforms": [
+    "macOS 14"
+  ],
+  "license": "MIT"
+}
