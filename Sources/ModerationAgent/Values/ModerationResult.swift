@@ -1,7 +1,8 @@
 import Foundation
+import GraniteAgents
 
 /// What a call answers: the files written, as absolute paths, and what they hold.
-public struct ModerationResult: Codable, Sendable, Equatable {
+public struct ModerationResult: AgentAnswer, Equatable {
     /// The package's manifest, `Package.swift`.
     public var path: String?
     /// Every file written: the package's, and a project or manifest the package was linked into.
