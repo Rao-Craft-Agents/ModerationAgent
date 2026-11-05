@@ -1,96 +1,72 @@
 # ModerationAgent
 
-On-device content safety for an app that shows what people post, written as a local Swift package and shipped as a
-[Granite](https://github.com/riteshpakala/Granite) agent package. One call writes `Packages/ModerationKit`: a keyword
-filter, an image-safety gate on a Core ML classifier the app provides, a policy the app persists, a `Moderator` that
-judges each piece of content into allow, blur or hide with the reason, a SwiftUI censor overlay and a keyword list
-editor, with their tests; then links it into every app target of the project in the folder.
+Keep what people post in your app safe to look at, decided on the device. One request gives the app a keyword
+filter, an image check on a Core ML classifier you provide, and a moderator that decides for each post whether to
+show it, blur it or hide it, and says why, with the SwiftUI that covers what it flags and a screen to edit the
+keyword list. It is written as a local Swift package of plain SwiftUI that works in any app, with no Granite and no
+other dependency in it, and linked into your project for you.
 
-It is one of the [Rao Craft Agents](https://github.com/Rao-Craft-Agents): independent packages that, tagged in prompts
-along the life of a project, build an app of [Loom](https://github.com/riteshpakala/Loom)'s quality. `moderation`
-generalizes Loom's ModerationKit, its NSFW Shield and its keyword filter.
-
-## How an app finds it
-
-ModerationAgent is a `GraniteAgentPackage`, and it carries a record in its binary:
-
-```swift
-@used @section("__DATA_CONST,__granite")
-let moderationRecord: GraniteRoster.Record = { GraniteRoster.record(ModerationAgent.self) }
-```
-
-In [Craft](https://github.com/riteshpakala/Craft), install it from the Agent Store or with
-`craft agents add https://github.com/Rao-Craft-Agents/ModerationAgent.git`, then say `$moderation` in a request:
+## What you can ask
 
 ```
 $moderation keep spoilers and crypto spam out of the recipe feed, and blur food photos the model flags
+$moderation the whole content-safety package for the app
+$moderation filter spoiler and store-bought, with an editor for the list and no image checks
+$moderation blur photos the classifier at https://models.example.com/food-photo-safety.mlmodel labels unsafe
 ```
 
-The model writes the call; it shows on Craft's agent map as `moderation-1`, and the files it names are built and
-tested with the turn.
+Craft writes the call from your request, shows it on its agent map as `moderation-1`, and builds and tests what it
+writes with the turn.
 
-## What a call takes and answers
+## What you get
 
-| Field | | |
-|---|---|---|
-| `name` | optional | the package's name, module and folder; `ModerationKit` when left out |
-| `into` | optional | the package's folder, relative to the project; `Packages/<name>` when left out |
-| `keywords` | optional | the terms a new install filters: `spoiler`, `buy now`, `crypto*` |
-| `label` | optional | the image classifier's label that means unsafe; `NSFW` when left out |
-| `threshold` | optional | the score from 0 to 1 from which an image is blurred; 0.8 when left out |
-| `modelURL` | optional | the https URL of an `.mlmodel` the app downloads once, compiles and keeps |
-| `features` | optional | of `keywords`, `images`, `overlay`, `editor`; all four when left out |
-| `link` | optional | whether to link into the `.xcodeproj` or `Package.swift` in the folder; true when left out |
-| `directory` | the host's | the folder the host works in; a host fills it and does not show it to a model |
+- **A keyword filter.** Whole words in any case, accents or width, phrases, and `*` for any letters or any one word;
+  every term compiled once and matched in one pass, with the term, field and words of each match.
+- **An image check on your model.** A classifier the app bundles, or downloads once from a URL, compiles on the
+  device and keeps; images scored through Vision on a queue of their own and blurred from the score you choose (0.8
+  unless you say).
+- **A moderator.** `Moderator` judges each piece of content into allow, blur or hide with the reason, never on the
+  main thread, and keeps a verdict while the content and the policy stay the same. An image that cannot be screened
+  never hides content.
+- **The SwiftUI around it.** `censorOverlay(_:)` blurs flagged content under the reason until a tap or a click, folds
+  hidden content to a line with a Show button and keeps it from VoiceOver while covered; `KeywordListEditor` turns the
+  filter on and off, chooses what a match does, and adds and removes terms.
+- **A policy and its tests.** `ModerationPolicy` for the app to persist, and tests of the filter, the policy and the
+  moderator.
 
-```json
-{}
-{"keywords": ["spoiler", "store-bought", "crypto*"], "threshold": 0.7}
-{"modelURL": "https://models.example.com/food-photo-safety.mlmodel", "label": "unsafe"}
-{"features": ["keywords", "editor"], "keywords": ["spoiler"]}
-{"name": "RecipeSafety", "into": "Packages/RecipeSafety", "link": false}
-```
+## How it works
 
-The answer is a `ModerationResult`: every file written (`path`, `paths`, absolute, the project or manifest it edited
-among them), the package's name and folder, its parts, where it was linked, the files an earlier call wrote that this
-one left out (removed), and a sentence for anything it changed beside the package, like a deployment target raised.
+- Every field is checked first; every problem is said at once, and nothing is written.
+- Every file comes from a template, and no model is asked: the same call makes the same files every time, and a part
+  you leave out leaves no code behind.
+- It links the package into every app target of the Xcode project (or the `Package.swift`) in the folder, raising a
+  deployment target below iOS 17 or macOS 14; a second call adds nothing, and the same name again writes the package
+  again without the parts left out.
+- Every file is parsed with `swiftc -parse` before any lands; what it makes is built and tested with the turn.
 
-## What it writes
+## Works well with
 
-| Part | Files |
-|---|---|
-| always | `Package.swift` (iOS 17, macOS 14, Swift 6, no dependencies), `ModerationPolicy`, `ModeratedContent`, `ModerationReason`, `Verdict`, `ModerationAction`, `Moderator` |
-| `keywords` | `KeywordFilter`: every term compiled once into a tree of words and matched in one pass; whole words, any case, accents or width, phrases, `*` for any letters or any one word; the term, field and words of each match; `KeywordRule`, a term with its switch and fields |
-| `images` | `ImageSafety`, `CoreMLImageSafety`: a classifier the app bundles, keeps compiled, or downloads once from a URL, compiled on the device and kept in Application Support; run through Vision on a queue of its own; images loaded with URLSession, decoded to 512 pixels, their scores kept by URL |
-| `overlay` | `censorOverlay(_:)`: blurred under the reason's symbol and words until a tap or a click, hidden content folded to a line with a Show button, hidden from VoiceOver while covered |
-| `editor` | `KeywordListEditor`: the filter's switch, what a match does, add and remove terms, each term's switch and fields |
-| tests | the keyword filter, the policy, and the moderator with a stub image screen |
+`moderation` brings the content safety of [Loom](https://github.com/riteshpakala/Loom) (its ModerationKit, NSFW
+Shield and keyword filter) to any app that shows what people post. It sits beside the screens `loom` writes and the
+pages `granite` makes: judge each post with the moderator, put `.censorOverlay(verdict)` on its card, and
+`KeywordListEditor` in settings. Reporting, blocking accounts and moderation a server does are not its work.
 
-`Moderator` is an actor: judging never runs on the main thread, a verdict is kept by the content's id while the
-content and the policy stay the same, and an image that cannot be screened never hides content. No model ships in
-the package.
+## Get it
 
-## How the package is made
+In Craft, install Moderation from the Agent Store, or run
+`craft agents add https://github.com/Rao-Craft-Agents/ModerationAgent.git`, then say `$moderation` in a request.
 
-| Step | What |
-|---|---|
-| Read | every field checked; every problem said at once, and nothing written |
-| Write | every file from a template, the call's name, terms, label, threshold and URL in it; parts left out leave no code behind |
-| Link | the project file edited as text, as Xcode writes it: the package reference, a product dependency and a build file for every application target, a deployment target below iOS 17 or macOS 14 raised; or the manifest's dependency, products and platforms; a second call adds nothing |
-| Check | every file staged, parsed with `swiftc -parse`, then moved into the project together |
-| Again | the same name writes the package again and removes the parts left out; a folder holding another package is refused |
+## Requirements
 
-No model is asked: the same call makes the same files every time.
+- A Mac on macOS 14 or later, with Xcode.
+- The package targets iOS 17 and macOS 14 in Swift 6, with no dependencies.
+- Image checks need a Core ML classifier of your own, bundled with the app or at an https URL: no model ships in the
+  package.
+- MIT licensed.
 
-## Testing
+## For developers
 
-```
-swift test                       # the record, the schema, the guide, every set of parts, both linkers, a call through the roster
-MODERATION_BUILD=1 swift test    # the packages built and tested, for macOS and the iOS simulator, linked into an app and a package
-```
-
-The gated test builds and tests the whole package and three smaller ones, builds it for the iOS simulator, builds an
-app project it is linked into for macOS and iOS, and runs a tool in a package it is linked into that scores images
-with a real (tiny, made-for-the-test) Core ML classifier: downloaded, compiled, kept, and loaded again from the cache.
-
-MIT licensed.
+What a call takes and answers, every file it writes and how the package is made and linked are in the
+[reference](Docs/Reference.md). It follows Granite's agent standard,
+[Schema/GraniteAgent.md](https://github.com/riteshpakala/Granite/blob/main/Schema/GraniteAgent.md), and how it is
+measured is [TESTING.md](TESTING.md).
